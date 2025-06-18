@@ -12,7 +12,7 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["python3", "main.py"]
+run = ["python3", "app.py"]
 deploymentTarget = "cloudrun"
 
 [workflows]
@@ -26,3 +26,7 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python app.py"
+
+[[ports]]
+localPort = 8080
+externalPort = 80

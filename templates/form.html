@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Service Sheet</title>
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 40px;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: #111;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(255, 0, 0, 0.2);
+    }
+    h2 {
+      color: #fff;
+      margin-bottom: 10px;
+    }
+    h3 {
+      color: #e50914;
+      margin-top: 30px;
+      border-bottom: 1px solid #e50914;
+      padding-bottom: 4px;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: 600;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      background: #222;
+      border: 1px solid #444;
+      color: #fff;
+      border-radius: 4px;
+      margin-top: 5px;
+    }
+    textarea {
+      resize: vertical;
+    }
+    button {
+      margin-top: 25px;
+      background-color: #e50914;
+      border: none;
+      color: white;
+      padding: 12px 30px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 6px;
+      width: 100%;
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .logo img {
+      max-height: 80px;
+    }
+    canvas {
+      border: 2px solid #e50914;
+      background-color: #fff;
+      width: 100%;
+      height: 150px;
+      margin-top: 5px;
+    }
+    .warning {
+      color: #ff4c4c;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">
+    <picture>
+      <source srcset="{{ url_for('static', filename='logo.avif') }}" type="image/avif">
+      <img src="{{ url_for('static', filename='logo.png') }}" alt="Company Logo">
+    </picture>
+    <h2>Service Sheet Submission</h2>
+    <p style="color:#ccc;">Fill out the form below to generate your PDF</p>
+  </div>
+
+  <form method="POST" action="/submit" onsubmit="captureSignatures()">
+    <h3>Job Information</h3>
+    <label>Customer:<input name="customer"></label>
+    <label>Job No:<input name="job_no"></label>
+    <label>Job Type:<input name="job_type"></label>
+    <label>Customer Ref:<input name="customer_ref"></label>
+    <label>Our Ref:<input name="our_ref"></label>
+
+    <h3>Site Details</h3>
+    <label>Site Address:<input name="site_address"></label>
+
+    <label>Travel Start:<input type="time" name="travel_start" id="travel_start" onchange="calculateTimes()"></label>
+    <label>Site Arrival:<input type="time" name="site_arrival" id="site_arrival" onchange="calculateTimes()"></label>
+    <label>Site Depart:<input type="time" name="site_depart" id="site_depart" onchange="calculateTimes()"></label>
+    <label>Travel Finish:<input type="time" name="travel_finish" id="travel_finish" onchange="calculateTimes()"></label>
+
+    <label>Total Travel:<input name="total_travel" id="total_travel" readonly></label>
+    <label>Total Onsite:<input name="total_onsite" id="total_onsite" readonly></label>
+    <div id="warning" class="warning"></div>
+
+    <label>Date:<input type="date" name="date" placeholder="DD/MM/YYYY"></label>
+
+    <h3>Lift Info</h3>
+    <label>Make:<input name="make"></label>
+    <label>Model:<input name="model"></label>
+    <label>Description:<input name="description"></label>
+    <label>Serial:<input name="serial"></label>
+    <label>Location:<input name="location"></label>
+
+    <h3>Reports</h3>
+    <label>Work Description:<textarea name="work_description" rows="3"></textarea></label>
+    <label>Engineer Report:<textarea name="engineer_report" rows="3"></textarea></label>
+    <label>Recommendations:<textarea name="recommendations" rows="3"></textarea></label>
+
+    <h3>Checks</h3>
+    <label>Auto Dialler:<input name="autodialler"></label>
+    <label>Logcard:<input name="logcard"></label>
+    <label>Lift In Service Status:<input name="lift_in_service"></label>
+
+    <h3>Engineer Info</h3>
+    <label>Engineer Name:<input name="engineer_name"></label>
+
+    <h3>Signatures</h3>
+    <label>Engineer Signature:</label>
+    <canvas id="engineer_pad"></canvas>
+    <label>Customer Signature:</label>
+    <canvas id="customer_pad"></canvas>
+    <input type="hidden" name="engineer_signature" id="engineer_signature">
+    <input type="hidden" name="customer_signature" id="customer_signature">
+
+    <h3>File Output</h3>
+    <label>PDF File Name:<input name="pdf_filename" placeholder="e.g. Job123_Sheet"></label>
+
+    <button type="submit">Generate PDF</button>
+  </form>
+</div>
+
+<script>
+function getMinutes(timeStr) {
+  if (!timeStr) return null;
+  const [h, m] = timeStr.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function formatDuration(mins) {
+  const rounded = Math.round(mins / 15) * 15;
+  const h = Math.floor(rounded / 60);
+  const m = rounded % 60;
+  return `${h}h ${m}min`;
+}
+
+function calculateTimes() {
+  const travelStart = getMinutes(document.getElementById("travel_start").value);
+  const siteArrival = getMinutes(document.getElementById("site_arrival").value);
+  const siteDepart = getMinutes(document.getElementById("site_depart").value);
+  const travelFinish = getMinutes(document.getElementById("travel_finish").value);
+  const warning = document.getElementById("warning");
+  warning.textContent = "";
+
+  if (
+    travelStart !== null &&
+    travelFinish !== null &&
+    siteArrival !== null &&
+    siteDepart !== null
+  ) {
+    const toSite = siteArrival - travelStart;
+    const fromSite = travelFinish - siteDepart;
+    const totalTravel = toSite + fromSite;
+    if (toSite < 0 || fromSite < 0) {
+      warning.textContent = "⚠️ Check that travel times are in correct order.";
+      document.getElementById("total_travel").value = "";
+    } else {
+      document.getElementById("total_travel").value = formatDuration(totalTravel);
+    }
+  }
+
+  if (siteArrival !== null && siteDepart !== null) {
+    const onsite = siteDepart - siteArrival;
+    if (onsite < 0) {
+      warning.textContent = "⚠️ Site Depart must be after Site Arrival.";
+      document.getElementById("total_onsite").value = "";
+    } else {
+      document.getElementById("total_onsite").value = formatDuration(onsite);
+    }
+  }
+}
+
+function setupSignaturePad(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext("2d");
+  let drawing = false;
+  canvas.addEventListener("mousedown", () => { drawing = true; });
+  canvas.addEventListener("mouseup", () => { drawing = false; ctx.beginPath(); });
+  canvas.addEventListener("mouseleave", () => { drawing = false; ctx.beginPath(); });
+  canvas.addEventListener("mousemove", e => {
+    if (!drawing) return;
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#000";
+    const rect = canvas.getBoundingClientRect();
+    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+  });
+}
+
+function captureSignatures() {
+  document.getElementById("engineer_signature").value = document.getElementById("engineer_pad").toDataURL("image/png");
+  document.getElementById("customer_signature").value = document.getElementById("customer_pad").toDataURL("image/png");
+}
+
+setupSignaturePad("engineer_pad");
+setupSignaturePad("customer_pad");
+</script>
+</body>
+</html>
