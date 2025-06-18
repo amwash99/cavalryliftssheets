@@ -7,20 +7,6 @@ import io
 import base64
 import re
 
-def decode_signature(sig_data_raw):
-    import re
-    if not sig_data_raw or not re.match(r"^data:image/.+;base64,", sig_data_raw):
-        return None
-    try:
-        base64_data = sig_data_raw.split(',')[1]
-        decoded = base64.b64decode(base64_data)
-        if len(decoded) < 100:  # too short to be real image
-            return None
-        return decoded
-    except Exception as e:
-        print("⚠️ Failed to decode signature:", e)
-        return None
-
 app = Flask(__name__)
 
 # mm to pt conversion
@@ -31,6 +17,18 @@ def mm(mm_val):
 def mm_from_top(mm_y):
     return mm(297 - mm_y)  # 297mm = A4 page height
 
+def decode_signature(sig_data_raw):
+    if not sig_data_raw or not re.match(r"^data:image/.+;base64,", sig_data_raw):
+        return None
+    try:
+        base64_data = sig_data_raw.split(',')[1]
+        decoded = base64.b64decode(base64_data)
+        if len(decoded) < 100:
+            return None
+        return decoded
+    except Exception as e:
+        print("⚠️ Failed to decode signature:", e)
+        return None
 
 @app.route('/')
 def index():
@@ -40,10 +38,12 @@ def index():
 def submit():
     data = request.form
 
-    # Decode base64 image signatures
-    engineer_sig =   decode_signature(data.get('engineer_signature', ''))
-    customer_sig =        decode_signature(data.get('customer_signature', ''))
-
+    engineer_sig = decode_signature(data.get('engineer_signature', ''))
+    customer_sig = decode_signature(data.get('customer_signature', ''))
+    engineer_name2 = data.get('engineer_name2', '')
+    customer_name2 = data.get('customer_name2', '')
+    engineer_sig2 = decode_signature(data.get('engineer_signature2', ''))
+    customer_sig2 = decode_signature(data.get('customer_signature2', ''))
 
     packet = io.BytesIO()
     c = canvas.Canvas(packet, pagesize=A4)
@@ -74,18 +74,24 @@ def submit():
     c.drawString(mm(140.22), mm_from_top(246.76), data.get('lift_in_service', ''))
     c.drawString(mm(36.86), mm_from_top(264.93), data.get('engineer_name', ''))
 
-
-    # Signatures (placed manually — adjust if needed)
+    # Primary Signatures
     if customer_sig:
-        c.drawImage(ImageReader(io.BytesIO(customer_sig)), mm(140), mm(15), width=100, height=50, mask='auto')
-
+        c.drawImage(ImageReader(io.BytesIO(customer_sig)), mm(148.39), mm_from_top(275.10), width=100, height=50, mask='auto')
     if engineer_sig:
-        c.drawImage(ImageReader(io.BytesIO(engineer_sig)), mm(40), mm(15), width=100, height=50, mask='auto')
+        c.drawImage(ImageReader(io.BytesIO(engineer_sig)), mm(30.74), mm_from_top(275.10), width=100, height=50, mask='auto')
+
+    # Additional Signatures & Names section at the bottom
+    c.drawString(mm(7.79), mm_from_top(285.15) + mm(8), engineer_name2)
+    c.drawString(mm(117.78), mm_from_top(285.15) + mm(8), customer_name2)
+
+    if engineer_sig2:
+        c.drawImage(ImageReader(io.BytesIO(engineer_sig2)), mm(7.79), mm_from_top(285.15), width=100, height=50, mask='auto')
+    if customer_sig2:
+        c.drawImage(ImageReader(io.BytesIO(customer_sig2)), mm(117.78), mm_from_top(285.15), width=100, height=50, mask='auto')
 
     c.save()
     packet.seek(0)
 
-    # Merge with your uploaded template
     template = PdfReader("Blank Service Sheet4.pdf")
     output = PdfWriter()
     overlay = PdfReader(packet)
@@ -98,7 +104,6 @@ def submit():
     output.write(output_stream)
     output_stream.seek(0)
 
-    # Get file name from form or use default
     filename = data.get('pdf_filename', '').strip()
     if not filename:
         filename = "Completed_Service_Sheet"

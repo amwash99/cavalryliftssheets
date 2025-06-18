@@ -199,20 +199,46 @@ function calculateTimes() {
 function setupSignaturePad(canvasId) {
   const canvas = document.getElementById(canvasId);
   const ctx = canvas.getContext("2d");
+
+  function resizeCanvas() {
+    const width = canvas.offsetWidth;
+    const height = canvas.offsetHeight;
+    canvas.width = width;
+    canvas.height = height;
+  }
+
+  resizeCanvas();
+
   let drawing = false;
-  canvas.addEventListener("mousedown", () => { drawing = true; });
-  canvas.addEventListener("mouseup", () => { drawing = false; ctx.beginPath(); });
-  canvas.addEventListener("mouseleave", () => { drawing = false; ctx.beginPath(); });
-  canvas.addEventListener("mousemove", e => {
+
+  canvas.addEventListener("mousedown", () => {
+    drawing = true;
+  });
+
+  canvas.addEventListener("mouseup", () => {
+    drawing = false;
+    ctx.beginPath();
+  });
+
+  canvas.addEventListener("mouseleave", () => {
+    drawing = false;
+    ctx.beginPath();
+  });
+
+  canvas.addEventListener("mousemove", (e) => {
     if (!drawing) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
     ctx.strokeStyle = "#000";
-    const rect = canvas.getBoundingClientRect();
-    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.lineTo(x, y);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.moveTo(x, y);
   });
 }
 
